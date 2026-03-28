@@ -8,7 +8,7 @@ const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public")); // Serve your HTML file
+app.use(express.static("public")); // Serve HTML file
 
 // Proxy endpoint for Claude API
 app.post("/api/claude", async (req, res) => {
