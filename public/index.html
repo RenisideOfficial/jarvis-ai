@@ -1,0 +1,1824 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>J.A.R.V.I.S — AI Command Center | Voice-Activated UI</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --cyan: #00f5ff;
+        --cyan2: #00c8d4;
+        --cyan3: #007a8a;
+        --blue: #0050ff;
+        --blue2: #003acc;
+        --amber: #ffb700;
+        --red: #ff3232;
+        --green: #00ff88;
+        --purple: #d400ff;
+        --bg: #020b14;
+        --bg2: #041220;
+        --bg3: #061a2a;
+        --panel: #061828;
+        --panel2: #081f35;
+        --text: #b8e4f0;
+        --text2: #7ab8cc;
+        --text3: #3a7a94;
+        --glow: 0 0 12px rgba(0, 245, 255, 0.5);
+        --glow2: 0 0 24px rgba(0, 245, 255, 0.3);
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        font-family: "Share Tech Mono", monospace;
+        color: var(--text);
+      }
+      canvas#stars {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      /* SCANLINE OVERLAY */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.07) 2px,
+          rgba(0, 0, 0, 0.07) 4px
+        );
+        pointer-events: none;
+        z-index: 999;
+        animation: scanMove 8s linear infinite;
+      }
+      @keyframes scanMove {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: 0 100%;
+        }
+      }
+
+      /* BOOT SCREEN */
+      #boot {
+        position: fixed;
+        inset: 0;
+        background: var(--bg);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+      }
+      #boot-logo {
+        font-family: "Orbitron", sans-serif;
+        font-size: clamp(28px, 5vw, 64px);
+        font-weight: 900;
+        color: var(--cyan);
+        text-shadow:
+          var(--glow2),
+          0 0 60px rgba(0, 245, 255, 0.2);
+        letter-spacing: 0.3em;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      #boot-sub {
+        font-size: 11px;
+        color: var(--text3);
+        letter-spacing: 0.3em;
+      }
+      #boot-bar-wrap {
+        width: 280px;
+        height: 2px;
+        background: rgba(0, 245, 255, 0.1);
+        border-radius: 1px;
+        overflow: hidden;
+      }
+      #boot-bar {
+        height: 100%;
+        width: 0;
+        background: var(--cyan);
+        box-shadow: var(--glow);
+        transition: width 0.05s linear;
+      }
+      #boot-log {
+        font-size: 10px;
+        color: var(--text3);
+        height: 100px;
+        overflow: hidden;
+        text-align: center;
+        line-height: 1.8;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+
+      /* LAYOUT */
+      #app {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: 260px 1fr 260px;
+        grid-template-rows: 56px 1fr 160px;
+        gap: 6px;
+        padding: 6px;
+        opacity: 0;
+        transition: opacity 0.8s;
+      }
+      #app.visible {
+        opacity: 1;
+      }
+
+      /* HEADER */
+      #header {
+        grid-column: 1/-1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        border: 1px solid rgba(0, 245, 255, 0.15);
+        background: var(--panel);
+        position: relative;
+        overflow: hidden;
+      }
+      #header::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--cyan),
+          transparent
+        );
+        animation: sweep 3s ease-in-out infinite;
+      }
+      @keyframes sweep {
+        0%,
+        100% {
+          opacity: 0.3;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      #hlogo {
+        font-family: "Orbitron", sans-serif;
+        font-size: 18px;
+        font-weight: 900;
+        color: var(--cyan);
+        letter-spacing: 0.25em;
+        text-shadow: var(--glow);
+      }
+      #hstatus {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        font-size: 10px;
+        color: var(--text3);
+      }
+      #hstatus span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 8px var(--green);
+        animation: blink 2s ease-in-out infinite;
+      }
+      .dot.amber {
+        background: var(--amber);
+        box-shadow: 0 0 8px var(--amber);
+      }
+      #hclock {
+        font-family: "Orbitron", sans-serif;
+        font-size: 20px;
+        color: var(--cyan);
+        text-shadow: var(--glow);
+        min-width: 150px;
+        text-align: right;
+      }
+      #hdate {
+        font-size: 9px;
+        color: var(--text3);
+        text-align: right;
+      }
+
+      /* PANELS */
+      .panel {
+        background: var(--panel);
+        border: 1px solid rgba(0, 245, 255, 0.12);
+        position: relative;
+        overflow: hidden;
+        transition:
+          box-shadow 0.3s,
+          border-color 0.3s;
+      }
+      .panel::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(0, 245, 255, 0.4),
+          transparent
+        );
+      }
+      .panel-title {
+        font-size: 9px;
+        color: var(--cyan);
+        letter-spacing: 0.25em;
+        padding: 10px 14px 6px;
+        border-bottom: 1px solid rgba(0, 245, 255, 0.08);
+        text-transform: uppercase;
+      }
+      .corner {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+      }
+      .corner.tl {
+        top: 4px;
+        left: 4px;
+        border-top: 1px solid var(--cyan);
+        border-left: 1px solid var(--cyan);
+      }
+      .corner.tr {
+        top: 4px;
+        right: 4px;
+        border-top: 1px solid var(--cyan);
+        border-right: 1px solid var(--cyan);
+      }
+      .corner.bl {
+        bottom: 4px;
+        left: 4px;
+        border-bottom: 1px solid var(--cyan);
+        border-left: 1px solid var(--cyan);
+      }
+      .corner.br {
+        bottom: 4px;
+        right: 4px;
+        border-bottom: 1px solid var(--cyan);
+        border-right: 1px solid var(--cyan);
+      }
+
+      /* LEFT COLUMN */
+      #left {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 14px;
+        font-size: 10px;
+      }
+      .metric-label {
+        color: var(--text3);
+      }
+      .metric-val {
+        color: var(--cyan);
+        font-family: "Orbitron", sans-serif;
+        font-size: 11px;
+      }
+      .bar-wrap {
+        height: 3px;
+        background: rgba(0, 245, 255, 0.08);
+        border-radius: 2px;
+        margin: 0 14px 8px;
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        background: linear-gradient(90deg, var(--cyan3), var(--cyan));
+        box-shadow: var(--glow);
+        transition: width 0.5s ease;
+      }
+      .sys-stat-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 12px 14px;
+      }
+      .sys-stat-item {
+        text-align: center;
+        border: 1px solid rgba(0, 245, 255, 0.1);
+        padding: 6px;
+        background: rgba(0, 0, 0, 0.2);
+      }
+      .sys-stat-label {
+        font-size: 8px;
+        color: var(--text3);
+        letter-spacing: 0.1em;
+      }
+      .sys-stat-value {
+        font-family: "Orbitron", sans-serif;
+        font-size: 14px;
+        color: var(--cyan);
+      }
+
+      /* CENTER */
+      #center {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      #hud-panel {
+        flex: 0 0 auto;
+        position: relative;
+        height: min(40vw, 280px);
+      }
+      #chat-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      #chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--cyan3) transparent;
+      }
+      .msg {
+        font-size: 11px;
+        line-height: 1.7;
+        max-width: 90%;
+        animation: fadeIn 0.3s ease;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .msg.user {
+        align-self: flex-end;
+        color: var(--amber);
+        text-align: right;
+      }
+      .msg.user::before {
+        content: "YOU > ";
+        color: var(--text3);
+        font-size: 9px;
+      }
+      .msg.ai {
+        align-self: flex-start;
+        color: var(--text);
+      }
+      .msg.ai::before {
+        content: "JARVIS > ";
+        color: var(--cyan);
+        font-size: 9px;
+        display: block;
+      }
+      .msg.sys {
+        align-self: center;
+        color: var(--text3);
+        font-size: 9px;
+        font-style: italic;
+      }
+
+      #input-row {
+        display: flex;
+        gap: 8px;
+        padding: 10px 14px;
+        border-top: 1px solid rgba(0, 245, 255, 0.08);
+      }
+      #chat-input {
+        flex: 1;
+        background: rgba(0, 245, 255, 0.04);
+        border: 1px solid rgba(0, 245, 255, 0.15);
+        color: var(--text);
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        padding: 8px 12px;
+        outline: none;
+        resize: none;
+        height: 36px;
+        transition: border-color 0.2s;
+      }
+      #chat-input:focus {
+        border-color: rgba(0, 245, 255, 0.4);
+        box-shadow: 0 0 8px rgba(0, 245, 255, 0.1);
+      }
+      .hud-btn {
+        background: rgba(0, 245, 255, 0.06);
+        border: 1px solid rgba(0, 245, 255, 0.2);
+        color: var(--cyan);
+        font-family: "Orbitron", sans-serif;
+        font-size: 9px;
+        padding: 8px 12px;
+        cursor: pointer;
+        letter-spacing: 0.1em;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+      .hud-btn:hover {
+        background: rgba(0, 245, 255, 0.15);
+        box-shadow: var(--glow);
+      }
+      .hud-btn:active {
+        transform: scale(0.97);
+      }
+      #voice-btn.listening {
+        background: rgba(255, 50, 50, 0.15);
+        border-color: var(--red);
+        color: var(--red);
+        animation: vPulse 0.8s ease-in-out infinite;
+      }
+      @keyframes vPulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(255, 50, 50, 0.4);
+        }
+        50% {
+          box-shadow: 0 0 0 6px rgba(255, 50, 50, 0);
+        }
+      }
+
+      /* HUD CANVAS */
+      #hud-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* RIGHT COLUMN */
+      #right {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .module-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 14px;
+        border-bottom: 1px solid rgba(0, 245, 255, 0.05);
+        cursor: pointer;
+        transition: background 0.2s;
+        font-size: 10px;
+      }
+      .module-item:hover {
+        background: rgba(0, 245, 255, 0.06);
+      }
+      .module-status {
+        font-size: 9px;
+        padding: 2px 8px;
+        border: 1px solid;
+        letter-spacing: 0.05em;
+      }
+      .module-status.on {
+        color: var(--green);
+        border-color: var(--green);
+        text-shadow: 0 0 6px var(--green);
+      }
+      .module-status.off {
+        color: var(--text3);
+        border-color: var(--text3);
+      }
+      .module-status.warn {
+        color: var(--amber);
+        border-color: var(--amber);
+      }
+      #log-lines {
+        padding: 6px 14px;
+        font-size: 9px;
+        color: var(--text3);
+        line-height: 1.9;
+        overflow: hidden;
+        height: 110px;
+      }
+
+      /* BOTTOM STATS */
+      #bottom {
+        grid-column: 1/-1;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        gap: 6px;
+      }
+      .stat-card {
+        background: var(--panel);
+        border: 1px solid rgba(0, 245, 255, 0.1);
+        padding: 10px 14px;
+        position: relative;
+        overflow: hidden;
+      }
+      .stat-card::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(0, 245, 255, 0.3),
+          transparent
+        );
+      }
+      .stat-label {
+        font-size: 9px;
+        color: var(--text3);
+        letter-spacing: 0.2em;
+        margin-bottom: 4px;
+      }
+      .stat-value {
+        font-family: "Orbitron", sans-serif;
+        font-size: 18px;
+        color: var(--cyan);
+        text-shadow: var(--glow);
+        transition: all 0.2s;
+      }
+      .stat-sub {
+        font-size: 8px;
+        color: var(--text3);
+        margin-top: 2px;
+      }
+      .stat-spark {
+        height: 32px;
+        margin-top: 6px;
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+      .typing-dots {
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+        padding: 4px 0;
+      }
+      .typing-dots span {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--cyan);
+        opacity: 0.3;
+        animation: typeDot 1.2s ease-in-out infinite;
+      }
+      .typing-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .typing-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes typeDot {
+        0%,
+        80%,
+        100% {
+          opacity: 0.3;
+        }
+        40% {
+          opacity: 1;
+        }
+      }
+
+      /* UI TRANSFORMATION MODES */
+      body.quantum-mode #app {
+        filter: drop-shadow(0 0 12px var(--purple)) brightness(1.02);
+      }
+      body.quantum-mode .panel {
+        border-color: rgba(212, 0, 255, 0.5);
+        box-shadow: 0 0 20px rgba(212, 0, 255, 0.2);
+      }
+      body.quantum-mode .metric-val,
+      body.quantum-mode #hclock,
+      body.quantum-mode .stat-value {
+        text-shadow:
+          0 0 8px #d400ff,
+          0 0 12px #d400ff;
+        color: #e6aaff;
+      }
+      body.stealth-mode #app {
+        opacity: 0.86;
+        filter: grayscale(0.4) brightness(0.7);
+      }
+      body.stealth-mode .panel {
+        background: rgba(1, 8, 15, 0.9);
+        border-color: rgba(100, 255, 100, 0.2);
+      }
+      body.stealth-mode .dot,
+      body.stealth-mode .dot.amber {
+        filter: blur(1px);
+      }
+      body.overdrive-mode #header {
+        border-top: 2px solid var(--red);
+        animation: pulseBorder 0.3s ease infinite alternate;
+      }
+      body.overdrive-mode .stat-value {
+        animation: glitchText 0.2s steps(2) infinite;
+      }
+      body.overdrive-mode #hud-canvas {
+        filter: hue-rotate(20deg) brightness(1.2);
+      }
+      @keyframes glitchText {
+        0% {
+          transform: skew(0deg);
+        }
+        20% {
+          transform: skew(1deg);
+        }
+        40% {
+          transform: skew(-1deg);
+        }
+        100% {
+          transform: skew(0deg);
+        }
+      }
+      @keyframes pulseBorder {
+        0% {
+          border-color: var(--red);
+          box-shadow: 0 0 10px red;
+        }
+        100% {
+          border-color: #ff8800;
+          box-shadow: 0 0 20px #ff6600;
+        }
+      }
+
+      /* CUSTOM CURSOR */
+      body {
+        cursor: none;
+      }
+      #cursor-dot {
+        width: 4px;
+        height: 4px;
+        background: var(--cyan);
+        border-radius: 50%;
+        position: fixed;
+        pointer-events: none;
+        z-index: 10000;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 8px var(--cyan);
+      }
+      #cursor-ring {
+        width: 32px;
+        height: 32px;
+        border: 1px solid rgba(0, 245, 255, 0.4);
+        border-radius: 50%;
+        position: fixed;
+        pointer-events: none;
+        z-index: 9999;
+        transform: translate(-50%, -50%);
+        transition:
+          width 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+          height 0.3s,
+          border-color 0.2s;
+      }
+      .cursor-hover #cursor-ring {
+        width: 48px;
+        height: 48px;
+        border-color: var(--cyan);
+        background: rgba(0, 245, 255, 0.1);
+        animation: spinRing 4s linear infinite;
+      }
+      @keyframes spinRing {
+        0% {
+          transform: translate(-50%, -50%) rotate(0deg);
+        }
+        100% {
+          transform: translate(-50%, -50%) rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stars"></canvas>
+    <div id="cursor-dot"></div>
+    <div id="cursor-ring"></div>
+
+    <div id="boot">
+      <div id="boot-logo">J.A.R.V.I.S</div>
+      <div id="boot-sub">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
+      <div id="boot-bar-wrap"><div id="boot-bar"></div></div>
+      <div id="boot-log"></div>
+    </div>
+
+    <div id="app">
+      <!-- HEADER -->
+      <div id="header" class="panel">
+        <div>
+          <div id="hlogo">J.A.R.V.I.S</div>
+          <div
+            style="
+              font-size: 9px;
+              color: var(--text3);
+              letter-spacing: 0.15em;
+              margin-top: 2px;
+            ">
+            COMMAND CENTER v3.0 — VOICE ACTIVATED
+          </div>
+        </div>
+        <div id="hstatus">
+          <span><span class="dot"></span>SYSTEMS NOMINAL</span>
+          <span><span class="dot amber"></span>AI ENGINE ACTIVE</span>
+          <span><span class="dot"></span>VOICE PROTOCOL</span>
+        </div>
+        <div
+          id="proxy-status"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-right: 20px;
+          ">
+          <span
+            id="proxy-dot"
+            class="dot"
+            style="background: var(--amber); width: 8px; height: 8px"></span>
+          <span style="font-size: 9px; color: var(--text3)"
+            >PROXY: CONNECTING...</span
+          >
+        </div>
+        <div>
+          <div id="hclock">--:--:--</div>
+          <div id="hdate">LOADING...</div>
+        </div>
+      </div>
+
+      <!-- LEFT -->
+      <div id="left">
+        <div class="panel" style="flex: 1">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
+          <div class="panel-title">◈ SYSTEM MONITOR</div>
+          <div class="metric-row">
+            <span class="metric-label">CPU CORE</span
+            ><span class="metric-val" id="cpu-val">--</span>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-fill" id="cpu-bar" style="width: 0%"></div>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">MEMORY</span
+            ><span class="metric-val" id="mem-val">--</span>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-fill" id="mem-bar" style="width: 0%"></div>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">GPU TEMP</span
+            ><span class="metric-val" id="gpu-val">--</span>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-fill" id="gpu-bar" style="width: 0%"></div>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">NETWORK</span
+            ><span class="metric-val" id="net-val">--</span>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-fill" id="net-bar" style="width: 0%"></div>
+          </div>
+          <div class="sys-stat-grid">
+            <div class="sys-stat-item">
+              <div class="sys-stat-label">UPTIME</div>
+              <div class="sys-stat-value" id="uptime-val">00:00:00</div>
+            </div>
+            <div class="sys-stat-item">
+              <div class="sys-stat-label">PROCESSES</div>
+              <div class="sys-stat-value" id="proc-val">0</div>
+            </div>
+            <div class="sys-stat-item">
+              <div class="sys-stat-label">THREAT LVL</div>
+              <div class="sys-stat-value" style="color: var(--green)">NONE</div>
+            </div>
+            <div class="sys-stat-item">
+              <div class="sys-stat-label">POWER DRAW</div>
+              <div class="sys-stat-value" id="power-draw">847W</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">◈ GEOLOCATION</div>
+          <div
+            style="
+              padding: 8px 14px;
+              font-size: 10px;
+              color: var(--text2);
+              line-height: 2;
+            ">
+            <div>
+              LAT: <span class="metric-val" id="loc-lat">SCANNING...</span>
+            </div>
+            <div>LON: <span class="metric-val" id="loc-lon">—</span></div>
+            <div>
+              ZONE: <span id="loc-zone" style="color: var(--text2)">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">◈ POWER STATUS</div>
+          <div style="padding: 8px 14px">
+            <canvas id="power-canvas" width="220" height="60"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- CENTER -->
+      <div id="center">
+        <div class="panel" id="hud-panel">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
+          <canvas id="hud-canvas"></canvas>
+        </div>
+
+        <div class="panel" id="chat-panel">
+          <div class="panel-title">
+            ◈ AI INTERFACE — VOICE KEYWORDS: QUANTUM | STEALTH | OVERDRIVE
+          </div>
+          <div id="chat-messages">
+            <div class="msg sys">
+              [ JARVIS ONLINE — ALL SYSTEMS OPERATIONAL ]
+            </div>
+            <div class="msg sys">
+              [ VOICE ACTIVATED UI — SAY "QUANTUM", "STEALTH", OR "OVERDRIVE" ]
+            </div>
+            <div class="msg ai">
+              Good day, Prince. I am JARVIS — your advanced intelligence
+              interface. All systems are online. Speak a keyword to transform my
+              interface, or issue any command.
+            </div>
+          </div>
+          <div id="input-row">
+            <button class="hud-btn" id="voice-btn" onclick="toggleVoice()">
+              🎙
+            </button>
+            <button class="hud-btn" id="mute-btn" onclick="toggleMute()">
+              🔊
+            </button>
+            <textarea
+              id="chat-input"
+              placeholder="ENTER COMMAND OR SAY KEYWORD..."
+              onkeydown="handleKey(event)"></textarea>
+            <button class="hud-btn" onclick="sendMessage()">SEND ▶</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div id="right">
+        <div class="panel" style="flex: 1">
+          <div class="panel-title">◈ SYSTEM MODULES</div>
+          <div class="module-item">
+            <span>VOICE RECOGNITION</span
+            ><span class="module-status on" id="voice-mod">ONLINE</span>
+          </div>
+          <div class="module-item">
+            <span>AI CORE</span><span class="module-status on">ACTIVE</span>
+          </div>
+          <div class="module-item">
+            <span>QUANTUM MODE</span
+            ><span class="module-status off" id="quantum-status">INACTIVE</span>
+          </div>
+          <div class="module-item">
+            <span>STEALTH PROTOCOL</span
+            ><span class="module-status off" id="stealth-status">INACTIVE</span>
+          </div>
+          <div class="module-item">
+            <span>OVERDRIVE MODE</span
+            ><span class="module-status off" id="overdrive-status"
+              >INACTIVE</span
+            >
+          </div>
+          <div class="module-item">
+            <span>ENCRYPTION</span><span class="module-status on">AES-256</span>
+          </div>
+          <div class="module-item">
+            <span>GEOLOCATION</span
+            ><span class="module-status warn" id="geo-mod">PENDING</span>
+          </div>
+          <div class="module-item">
+            <span>HOLOGRAPHICS</span
+            ><span class="module-status on">ACTIVE</span>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">◈ ALERT FEED</div>
+          <div id="log-lines"></div>
+        </div>
+      </div>
+
+      <!-- BOTTOM STATS -->
+      <div id="bottom">
+        <div class="stat-card">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="stat-label">NEURAL QUERIES</div>
+          <div class="stat-value" id="query-count">0</div>
+          <canvas
+            class="stat-spark"
+            id="spark1"
+            width="192"
+            height="32"></canvas>
+        </div>
+        <div class="stat-card">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="stat-label">AI CONFIDENCE</div>
+          <div class="stat-value" id="conf-val">98.7%</div>
+          <canvas
+            class="stat-spark"
+            id="spark2"
+            width="192"
+            height="32"></canvas>
+        </div>
+        <div class="stat-card">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="stat-label">RESPONSE TIME</div>
+          <div class="stat-value" id="resp-val">0ms</div>
+          <canvas
+            class="stat-spark"
+            id="spark3"
+            width="192"
+            height="32"></canvas>
+        </div>
+        <div class="stat-card">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="stat-label">TOKENS PROCESSED</div>
+          <div class="stat-value" id="token-val">0</div>
+          <canvas
+            class="stat-spark"
+            id="spark4"
+            width="192"
+            height="32"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ========== AUDIO ENGINE WITH CONTINUOUS HUM ==========
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      let actx = null;
+      let stopHum = null;
+
+      function getAudioCtx() {
+        if (!actx) {
+          actx = new AudioCtx();
+        }
+        if (actx.state === "suspended") actx.resume();
+        return actx;
+      }
+
+      function playTone(freq, dur, type = "sine", gain = 0.12) {
+        const c = getAudioCtx();
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = type;
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0, c.currentTime);
+        g.gain.linearRampToValueAtTime(gain, c.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+        o.connect(g);
+        g.connect(c.destination);
+        o.start();
+        o.stop(c.currentTime + dur);
+      }
+
+      function playClick() {
+        playTone(1200, 0.08, "square", 0.05);
+        playTone(800, 0.05, "square", 0.03);
+      }
+      function playBeep(f = 880) {
+        playTone(f, 0.12, "sine", 0.1);
+        setTimeout(() => playTone(f * 1.3, 0.08, "sine", 0.06), 70);
+      }
+      function playSend() {
+        playTone(660, 0.1, "sine", 0.1);
+        setTimeout(() => playTone(880, 0.08, "sine", 0.06), 80);
+      }
+      function playReceive() {
+        [0, 0.12, 0.24].forEach((t, i) => {
+          setTimeout(
+            () => playTone([440, 550, 660][i], 0.1, "sine", 0.07),
+            t * 1000,
+          );
+        });
+      }
+      function playVoiceOn() {
+        playTone(660, 0.15, "sine", 0.12);
+        setTimeout(() => playTone(880, 0.15, "sine", 0.1), 100);
+      }
+      function playVoiceOff() {
+        playTone(880, 0.1, "sine", 0.08);
+        setTimeout(() => playTone(440, 0.2, "sine", 0.06), 80);
+      }
+      function playChord() {
+        [440, 550, 660].forEach((f, i) =>
+          setTimeout(() => playTone(f, 0.2, "sine", 0.07), i * 60),
+        );
+      }
+
+      // THE AMBIENT HUM - void sound that makes interface feel alive
+      function playHum() {
+        const c = getAudioCtx();
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = "sine";
+        o.frequency.value = 60;
+        g.gain.value = 0.02;
+        o.connect(g);
+        g.connect(c.destination);
+        o.start();
+        return () => {
+          g.gain.linearRampToValueAtTime(0, c.currentTime + 0.5);
+          setTimeout(() => o.stop(), 500);
+        };
+      }
+
+      function playBoot() {
+        [0, 0.3, 0.6, 0.9, 1.2].forEach((t, i) => {
+          const f = [220, 330, 440, 660, 880][i];
+          setTimeout(() => {
+            playTone(f, 0.25, "sine", 0.08);
+            if (i === 4) setTimeout(() => playChord(), 200);
+          }, t * 1000);
+        });
+      }
+
+      // ========== CURSOR PHYSICS ==========
+      let mouseX = window.innerWidth / 2,
+        mouseY = window.innerHeight / 2,
+        ringX = mouseX,
+        ringY = mouseY;
+      const cDot = document.getElementById("cursor-dot"),
+        cRing = document.getElementById("cursor-ring");
+      window.addEventListener("mousemove", (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        cDot.style.left = `${mouseX}px`;
+        cDot.style.top = `${mouseY}px`;
+      });
+      function animateCursor() {
+        ringX += (mouseX - ringX) * 0.15;
+        ringY += (mouseY - ringY) * 0.15;
+        cRing.style.left = `${ringX}px`;
+        cRing.style.top = `${ringY}px`;
+        requestAnimationFrame(animateCursor);
+      }
+      animateCursor();
+      document
+        .querySelectorAll("button, input, textarea, .module-item")
+        .forEach((el) => {
+          el.addEventListener("mouseenter", () =>
+            document.body.classList.add("cursor-hover"),
+          );
+          el.addEventListener("mouseleave", () =>
+            document.body.classList.remove("cursor-hover"),
+          );
+          el.addEventListener("click", () => playClick());
+        });
+
+      // ========== STARS BACKGROUND ==========
+      const starCanvas = document.getElementById("stars"),
+        sctx = starCanvas.getContext("2d");
+      let stars = [];
+      function initStars() {
+        starCanvas.width = innerWidth;
+        starCanvas.height = innerHeight;
+        stars = Array.from({ length: 200 }, () => ({
+          x: Math.random() * innerWidth,
+          y: Math.random() * innerHeight,
+          r: Math.random() * 1.2 + 0.2,
+          o: Math.random(),
+          s: Math.random() * 0.003 + 0.001,
+        }));
+      }
+      function drawStars() {
+        sctx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+        stars.forEach((s) => {
+          s.o += s.s;
+          if (s.o > 1 || s.o < 0) s.s = -s.s;
+          sctx.beginPath();
+          sctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          sctx.fillStyle = `rgba(0,245,255,${s.o * 0.6})`;
+          sctx.fill();
+        });
+        requestAnimationFrame(drawStars);
+      }
+      initStars();
+      drawStars();
+      window.addEventListener("resize", initStars);
+
+      // ========== BOOT SEQUENCE ==========
+      const bootLogs = [
+        "INITIALIZING NEURAL NETWORK...",
+        "LOADING SYSTEM MONITOR...",
+        "CALIBRATING VOICE KEYWORDS...",
+        "ESTABLISHING SECURE CHANNELS...",
+        "ACTIVATING HOLOGRAPHIC INTERFACE...",
+        "QUANTUM | STEALTH | OVERDRIVE — READY",
+        "ALL SYSTEMS GO — LAUNCHING JARVIS...",
+      ];
+      async function boot() {
+        const bar = document.getElementById("boot-bar"),
+          logDiv = document.getElementById("boot-log");
+        playBoot();
+        for (let i = 0; i < bootLogs.length; i++) {
+          bar.style.width = ((i + 1) / bootLogs.length) * 100 + "%";
+          logDiv.innerHTML += `<div>${bootLogs[i]}</div>`;
+          await new Promise((r) => setTimeout(r, 240));
+        }
+        await new Promise((r) => setTimeout(r, 600));
+        document.getElementById("boot").style.opacity = "0";
+        setTimeout(() => {
+          document.getElementById("boot").style.display = "none";
+          document.getElementById("app").classList.add("visible");
+          startSystems();
+          jarvisSpeak(
+            "All systems online. Voice-activated UI modes ready. Say Quantum, Stealth, or Overdrive to transform my interface.",
+          );
+        }, 800);
+      }
+      boot();
+
+      // ========== UI MODE ACTIVATION ==========
+      function activateUIMode(mode) {
+        const body = document.body;
+        const qStat = document.getElementById("quantum-status"),
+          sStat = document.getElementById("stealth-status"),
+          oStat = document.getElementById("overdrive-status");
+        body.classList.remove("quantum-mode", "stealth-mode", "overdrive-mode");
+        qStat.textContent = "INACTIVE";
+        qStat.className = "module-status off";
+        sStat.textContent = "INACTIVE";
+        sStat.className = "module-status off";
+        oStat.textContent = "INACTIVE";
+        oStat.className = "module-status off";
+        if (mode === "quantum") {
+          body.classList.add("quantum-mode");
+          qStat.textContent = "ACTIVE";
+          qStat.className = "module-status on";
+          addLog(
+            "⚛️ QUANTUM MODE — reality distortion field engaged",
+            "#d400ff",
+          );
+          jarvisSpeak("Quantum mode engaged.");
+          playTone(660, 0.2, "sine", 0.15);
+          playTone(880, 0.25, "sine", 0.12);
+        } else if (mode === "stealth") {
+          body.classList.add("stealth-mode");
+          sStat.textContent = "ACTIVE";
+          sStat.className = "module-status on";
+          addLog("🌑 STEALTH PROTOCOL — optical camouflage active", "#00ffaa");
+          jarvisSpeak("Stealth protocol active.");
+          playTone(220, 0.3, "sine", 0.1);
+          playTone(180, 0.4, "sine", 0.08);
+        } else if (mode === "overdrive") {
+          body.classList.add("overdrive-mode");
+          oStat.textContent = "ACTIVE";
+          oStat.className = "module-status on";
+          addLog("⚡ OVERDRIVE — neural throughput increased 240%", "#ff6600");
+          jarvisSpeak("Overdrive active.");
+          for (let i = 0; i < 3; i++)
+            setTimeout(
+              () => playTone(1200 + i * 200, 0.1, "square", 0.12),
+              i * 80,
+            );
+        }
+      }
+
+      // ========== VOICE RECOGNITION ==========
+      let recognition = null,
+        listening = false;
+      const voiceModSpan = document.getElementById("voice-mod");
+      function toggleVoice() {
+        if (
+          !(
+            "webkitSpeechRecognition" in window || "SpeechRecognition" in window
+          )
+        ) {
+          addLog("VOICE NOT SUPPORTED", "#ff3232");
+          return;
+        }
+        if (listening) {
+          if (recognition) recognition.stop();
+          listening = false;
+          document.getElementById("voice-btn").classList.remove("listening");
+          voiceModSpan.textContent = "ONLINE";
+          voiceModSpan.className = "module-status on";
+          playVoiceOff();
+          addLog("VOICE DEACTIVATED");
+          return;
+        }
+        const SpeechRecognition =
+          window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.lang = "en-US";
+        recognition.interimResults = false;
+        recognition.onresult = (e) => {
+          const transcript = e.results[0][0].transcript.toLowerCase().trim();
+          document.getElementById("chat-input").value = transcript;
+          playBeep(660);
+          if (transcript.includes("quantum")) activateUIMode("quantum");
+          else if (transcript.includes("stealth")) activateUIMode("stealth");
+          else if (transcript.includes("overdrive"))
+            activateUIMode("overdrive");
+          else sendMessageWithText(transcript);
+        };
+        recognition.onend = () => {
+          if (listening) {
+            try {
+              recognition.start();
+            } catch (e) {}
+          }
+        };
+        recognition.start();
+        listening = true;
+        document.getElementById("voice-btn").classList.add("listening");
+        voiceModSpan.textContent = "ACTIVE";
+        voiceModSpan.className = "module-status warn";
+        addLog("🎤 LISTENING — say QUANTUM, STEALTH, or OVERDRIVE", "#ffb700");
+        playVoiceOn();
+      }
+      function sendMessageWithText(text) {
+        if (!text.trim()) return;
+        document.getElementById("chat-input").value = text;
+        sendMessage();
+      }
+
+      // ========== SPEECH ==========
+      let speechEnabled = true;
+      function jarvisSpeak(txt) {
+        if (!speechEnabled) return;
+        speechSynthesis.cancel();
+        const clean = txt.replace(/[*_`#]/g, "").trim();
+        const utt = new SpeechSynthesisUtterance(clean);
+        const voices = speechSynthesis.getVoices();
+        const preferred = voices.find(
+          (v) =>
+            v.name.includes("Google UK English Male") || v.lang === "en-GB",
+        );
+        if (preferred) utt.voice = preferred;
+        utt.pitch = 0.72;
+        utt.rate = 0.9;
+        speechSynthesis.speak(utt);
+      }
+      function toggleMute() {
+        speechEnabled = !speechEnabled;
+        document.getElementById("mute-btn").textContent = speechEnabled
+          ? "🔊"
+          : "🔇";
+        addLog(speechEnabled ? "JARVIS VOICE ENABLED" : "VOICE MUTED");
+        playBeep();
+      }
+
+      // ========== CHAT & AI (PROXY SERVER) ==========
+      const JARVIS_SYSTEM = `You are JARVIS, a sophisticated AI for Prince. Respond professionally, concisely (under 4 sentences). If user says quantum, stealth, or overdrive, acknowledge the mode activation.`;
+      let chatHistory = [],
+        isThinking = false,
+        queryCountVal = 0,
+        totalTokensVal = 0;
+      function appendMsg(role, text) {
+        const div = document.createElement("div");
+        div.className = `msg ${role}`;
+        div.textContent = text;
+        document.getElementById("chat-messages").appendChild(div);
+        div.scrollIntoView({ behavior: "smooth", block: "end" });
+      }
+      function appendTyping() {
+        const div = document.createElement("div");
+        div.className = "msg ai";
+        div.innerHTML =
+          '<div class="typing-dots"><span></span><span></span><span></span></div>';
+        document.getElementById("chat-messages").appendChild(div);
+        div.scrollIntoView({ behavior: "smooth" });
+        return div;
+      }
+      async function sendMessage() {
+        if (isThinking) return;
+        const input = document.getElementById("chat-input");
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = "";
+        isThinking = true;
+        playSend();
+        appendMsg("user", text);
+        chatHistory.push({ role: "user", content: text });
+        const typingEl = appendTyping();
+        const t0 = performance.now();
+        try {
+          const res = await fetch("http://localhost:3001/api/claude", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 300,
+              system: JARVIS_SYSTEM,
+              messages: chatHistory,
+            }),
+          });
+          if (!res.ok) throw new Error(`API ${res.status}`);
+          const data = await res.json();
+          const reply = data.content?.[0]?.text || "Systems nominal.";
+          const elapsed = Math.round(performance.now() - t0);
+          const outTokens = data.usage?.output_tokens || 0,
+            inTokens = data.usage?.input_tokens || 0;
+          typingEl.remove();
+          appendMsg("ai", reply);
+          chatHistory.push({ role: "assistant", content: reply });
+          jarvisSpeak(reply);
+          playReceive();
+          queryCountVal++;
+          totalTokensVal += outTokens + inTokens;
+          document.getElementById("query-count").textContent = queryCountVal;
+          document.getElementById("token-val").textContent =
+            totalTokensVal.toLocaleString();
+          document.getElementById("resp-val").textContent = elapsed + "ms";
+          document.getElementById("conf-val").textContent =
+            (97 + Math.random() * 2.5).toFixed(1) + "%";
+          updateSparkBuffers(queryCountVal, elapsed, totalTokensVal);
+          addLog(
+            `RESPONSE — ${elapsed}ms — ${outTokens + inTokens}T`,
+            "#00ff88",
+          );
+        } catch (e) {
+          typingEl.remove();
+          appendMsg("ai", `Connection error: ${e.message}`);
+          jarvisSpeak(`System error, Prince.`);
+          addLog("LINK ERROR", "#ff3232");
+        }
+        isThinking = false;
+      }
+      function handleKey(e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      }
+
+      // ========== PROXY STATUS ==========
+      async function checkProxyConnection() {
+        try {
+          const res = await fetch("http://localhost:3001/api/health");
+          const data = await res.json();
+          const statusDot = document.getElementById("proxy-dot");
+          const statusText = document.querySelector(
+            "#proxy-status span:last-child",
+          );
+          if (data.api_key_configured) {
+            statusDot.style.background = "var(--green)";
+            statusDot.style.boxShadow = "0 0 8px var(--green)";
+            statusText.textContent = "PROXY: ACTIVE + KEY SET";
+            statusText.style.color = "var(--green)";
+          } else {
+            statusDot.style.background = "var(--red)";
+            statusDot.style.boxShadow = "0 0 8px var(--red)";
+            statusText.textContent = "PROXY: NO API KEY";
+            statusText.style.color = "var(--red)";
+          }
+        } catch (e) {
+          const statusDot = document.getElementById("proxy-dot");
+          const statusText = document.querySelector(
+            "#proxy-status span:last-child",
+          );
+          statusDot.style.background = "var(--red)";
+          statusDot.style.boxShadow = "0 0 8px var(--red)";
+          statusText.textContent = "PROXY: OFFLINE";
+          statusText.style.color = "var(--red)";
+        }
+      }
+      setInterval(checkProxyConnection, 5000);
+      checkProxyConnection();
+
+      // ========== SPARKLINES & METRICS ==========
+      function addLog(msg, color = "") {
+        const logDiv = document.getElementById("log-lines");
+        const t = new Date().toTimeString().slice(0, 8);
+        logDiv.innerHTML =
+          `<span style="color:${color || "var(--text3)"};">[${t}] ${msg}</span><br>` +
+          logDiv.innerHTML;
+        if (logDiv.innerHTML.length > 2000)
+          logDiv.innerHTML = logDiv.innerHTML.slice(0, 2000);
+      }
+      let spark1Buf = Array(40).fill(0),
+        spark3Buf = Array(40).fill(0),
+        spark4Buf = Array(40).fill(0);
+      function updateSparkBuffers(q, resp, tokens) {
+        spark1Buf.push(q);
+        spark1Buf.shift();
+        spark3Buf.push(resp);
+        spark3Buf.shift();
+        spark4Buf.push(tokens);
+        spark4Buf.shift();
+        drawSpark("spark1", spark1Buf, "#00f5ff");
+        drawSpark("spark3", spark3Buf, "#ffb700");
+        drawSpark("spark4", spark4Buf, "#00c8d4");
+      }
+      function drawSpark(id, buf, color) {
+        const c = document.getElementById(id);
+        if (!c || !buf.length) return;
+        const ctx = c.getContext("2d");
+        const w = c.width,
+          h = c.height;
+        ctx.clearRect(0, 0, w, h);
+        const mn = Math.min(...buf, 0),
+          mx = Math.max(...buf, 1);
+        ctx.beginPath();
+        buf.forEach((v, i) => {
+          const x = (i / (buf.length - 1)) * w,
+            y = h - ((v - mn) / (mx - mn || 1)) * (h - 4) - 2;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle =
+          color.replace("#", "rgba(") +
+          (color === "#00f5ff"
+            ? "0,245,255,0.08)"
+            : color === "#ffb700"
+              ? "255,183,0,0.08)"
+              : "0,200,212,0.08)");
+        ctx.fill();
+      }
+
+      let upSecs = 0,
+        procCount = Math.floor(Math.random() * 50 + 120),
+        cpuBuf = Array(40).fill(30);
+      function updateMetrics() {
+        const cpu = Math.min(
+          95,
+          Math.max(5, cpuBuf[cpuBuf.length - 1] + (Math.random() - 0.45) * 8),
+        );
+        cpuBuf.push(cpu);
+        cpuBuf.shift();
+        const mem = Math.min(88, Math.max(40, 60 + (Math.random() - 0.5) * 6));
+        const gpu = Math.min(90, Math.max(30, 55 + (Math.random() - 0.5) * 10));
+        const net = Math.min(80, Math.max(5, 20 + (Math.random() - 0.5) * 15));
+        document.getElementById("cpu-val").textContent = cpu.toFixed(1) + "%";
+        document.getElementById("cpu-bar").style.width = cpu + "%";
+        document.getElementById("mem-val").textContent = mem.toFixed(1) + "%";
+        document.getElementById("mem-bar").style.width = mem + "%";
+        document.getElementById("gpu-val").textContent = gpu.toFixed(0) + "°C";
+        document.getElementById("gpu-bar").style.width =
+          (gpu / 100) * 100 + "%";
+        document.getElementById("net-val").textContent = net.toFixed(1) + "%";
+        document.getElementById("net-bar").style.width = net + "%";
+        procCount += Math.random() > 0.7 ? 1 : -1;
+        if (procCount < 100) procCount = 100;
+        document.getElementById("proc-val").textContent = procCount;
+        upSecs++;
+        const h = String(Math.floor(upSecs / 3600)).padStart(2, "0"),
+          m = String(Math.floor((upSecs % 3600) / 60)).padStart(2, "0"),
+          s = String(upSecs % 60).padStart(2, "0");
+        document.getElementById("uptime-val").textContent = `${h}:${m}:${s}`;
+        drawPowerChart();
+        drawSpark(
+          "spark2",
+          [97, 98, 98.2, 97.8, 98.5, 98.7, 98.2, 98.9, 98.4, 98.6],
+          "#00ff88",
+        );
+      }
+      function drawPowerChart() {
+        const c = document.getElementById("power-canvas");
+        if (!c) return;
+        const ctx = c.getContext("2d"),
+          w = c.width,
+          h = c.height;
+        ctx.clearRect(0, 0, w, h);
+        const vals = [0.72, 0.79, 0.68, 0.88, 0.6, 0.85, 0.77];
+        vals.forEach((v, i) => {
+          const bw = 20,
+            gap = 8,
+            x = i * (bw + gap) + 10,
+            bh = v * (h - 16);
+          ctx.fillStyle = `rgba(0,245,255,${0.15 + v * 0.2})`;
+          ctx.fillRect(x, h - bh - 8, bw, bh);
+          ctx.strokeStyle = `rgba(0,245,255,0.7)`;
+          ctx.strokeRect(x, h - bh - 8, bw, bh);
+        });
+        const power = Math.floor(780 + Math.random() * 140);
+        document.getElementById("power-draw").textContent = power + "W";
+        ctx.fillStyle = "var(--cyan)";
+        ctx.font = "8px Share Tech Mono";
+        ctx.fillText(`POWER DRAW — ${power}W`, w / 2, h - 2);
+      }
+      setInterval(updateMetrics, 1500);
+
+      // ========== GEOLOCATION ==========
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          document.getElementById("loc-lat").textContent =
+            pos.coords.latitude.toFixed(4) + "°N";
+          document.getElementById("loc-lon").textContent =
+            pos.coords.longitude.toFixed(4) + "°E";
+          document.getElementById("loc-zone").textContent = "WAT UTC+1";
+          document.getElementById("geo-mod").textContent = "LOCKED";
+          document.getElementById("geo-mod").className = "module-status on";
+        });
+      }
+
+      // ========== RADAR WITH WORKING DOTS (LIKE YOUR ORIGINAL) ==========
+      let hud,
+        hudCtx,
+        hudW,
+        hudH,
+        hudCX,
+        hudCY,
+        hudR = 0,
+        hudAngle = 0,
+        radarAngle = 0;
+
+      function initHud() {
+        hud = document.getElementById("hud-canvas");
+        hudCtx = hud.getContext("2d");
+        const rect = hud.parentElement.getBoundingClientRect();
+        hud.width = rect.width;
+        hud.height = rect.height;
+        hudW = hud.width;
+        hudH = hud.height;
+        hudCX = hudW / 2;
+        hudCY = hudH / 2;
+        hudR = Math.min(hudCX, hudCY) * 0.82;
+      }
+
+      // Create radar dots that fade and respawn - JUST LIKE YOUR ORIGINAL!
+      let radarDots = [];
+      function initRadarDots() {
+        radarDots = [];
+        for (let i = 0; i < 12; i++) {
+          radarDots.push({
+            angle: Math.random() * Math.PI * 2,
+            distance: 0.3 + Math.random() * 0.65,
+            life: Math.random(), // Random starting life
+            fadeSpeed: 0.003 + Math.random() * 0.005,
+          });
+        }
+      }
+
+      function drawHud() {
+        if (!hudCtx) {
+          requestAnimationFrame(drawHud);
+          return;
+        }
+        hudCtx.clearRect(0, 0, hudW, hudH);
+        const cx = hudCX,
+          cy = hudCY,
+          r = hudR;
+
+        // Background circles
+        [1, 0.7, 0.4, 0.15].forEach((s, i) => {
+          hudCtx.beginPath();
+          hudCtx.arc(cx, cy, r * s, 0, Math.PI * 2);
+          hudCtx.strokeStyle = `rgba(0,245,255,${0.06 + i * 0.02})`;
+          hudCtx.lineWidth = 0.5;
+          hudCtx.stroke();
+        });
+
+        // Grid cross
+        hudCtx.strokeStyle = "rgba(0,245,255,0.06)";
+        hudCtx.lineWidth = 0.5;
+        hudCtx.beginPath();
+        hudCtx.moveTo(cx - r, cy);
+        hudCtx.lineTo(cx + r, cy);
+        hudCtx.stroke();
+        hudCtx.beginPath();
+        hudCtx.moveTo(cx, cy - r);
+        hudCtx.lineTo(cx, cy + r);
+        hudCtx.stroke();
+
+        // Radar sweep - animate the angle
+        radarAngle += 0.025;
+
+        // Draw sweep sector
+        hudCtx.save();
+        hudCtx.translate(cx, cy);
+        hudCtx.rotate(radarAngle);
+        for (let i = 0; i < 40; i++) {
+          const a = -(i / 40) * 0.8;
+          hudCtx.beginPath();
+          hudCtx.moveTo(0, 0);
+          hudCtx.arc(0, 0, r, a - 0.025, a, false);
+          hudCtx.fillStyle = `rgba(0,245,255,${(0.4 - i / 40) * 0.5})`;
+          hudCtx.fill();
+        }
+        hudCtx.restore();
+
+        // Sweep line
+        hudCtx.beginPath();
+        hudCtx.moveTo(cx, cy);
+        hudCtx.lineTo(
+          cx + Math.cos(radarAngle) * r,
+          cy + Math.sin(radarAngle) * r,
+        );
+        hudCtx.strokeStyle = "rgba(0,245,255,0.9)";
+        hudCtx.lineWidth = 1.5;
+        hudCtx.stroke();
+
+        // DRAW RADAR DOTS - exactly like your original, fading and respawning!
+        radarDots.forEach((dot) => {
+          // Update life - this is what makes dots fade out and then reappear
+          dot.life -= dot.fadeSpeed;
+          if (dot.life < 0) {
+            dot.life = 1;
+            dot.angle = Math.random() * Math.PI * 2;
+            dot.distance = 0.3 + Math.random() * 0.65;
+          }
+
+          const dotR = r * dot.distance;
+          const x = cx + Math.cos(dot.angle) * dotR;
+          const y = cy + Math.sin(dot.angle) * dotR;
+
+          // Outer glow - fades with life
+          hudCtx.beginPath();
+          hudCtx.arc(x, y, 3, 0, Math.PI * 2);
+          hudCtx.fillStyle = `rgba(0,255,136,${dot.life * 0.8})`;
+          hudCtx.fill();
+
+          // Inner core - brighter
+          hudCtx.beginPath();
+          hudCtx.arc(x, y, 1.5, 0, Math.PI * 2);
+          hudCtx.fillStyle = `rgba(0,255,136,${dot.life * 0.9 + 0.2})`;
+          hudCtx.fill();
+
+          // Outer ring
+          hudCtx.beginPath();
+          hudCtx.arc(x, y, 5, 0, Math.PI * 2);
+          hudCtx.strokeStyle = `rgba(0,255,136,${dot.life * 0.4})`;
+          hudCtx.lineWidth = 0.8;
+          hudCtx.stroke();
+        });
+
+        // Outer ring segments
+        const segs = 24;
+        for (let i = 0; i < segs; i++) {
+          if (i % 3 === 2) continue;
+          const a = (i / segs) * Math.PI * 2;
+          const x1 = cx + Math.cos(a) * (r + 6),
+            y1 = cy + Math.sin(a) * (r + 6);
+          const x2 = cx + Math.cos(a) * (r + 12),
+            y2 = cy + Math.sin(a) * (r + 12);
+          hudCtx.beginPath();
+          hudCtx.moveTo(x1, y1);
+          hudCtx.lineTo(x2, y2);
+          hudCtx.strokeStyle = `rgba(0,245,255,0.4)`;
+          hudCtx.lineWidth = 1;
+          hudCtx.stroke();
+        }
+
+        // Rotating arcs
+        hudAngle += 0.008;
+        [
+          [r + 18, 8, 0.6],
+          [r + 28, 5, 0.3],
+        ].forEach(([rad, arcW, opac], idx) => {
+          const dir = idx % 2 === 0 ? 1 : -1;
+          const start = hudAngle * dir;
+          hudCtx.beginPath();
+          hudCtx.arc(cx, cy, rad, start, start + Math.PI * 0.6);
+          hudCtx.strokeStyle = `rgba(0,245,255,${opac})`;
+          hudCtx.lineWidth = arcW;
+          hudCtx.stroke();
+          hudCtx.beginPath();
+          hudCtx.arc(
+            cx,
+            cy,
+            rad,
+            start + Math.PI,
+            start + Math.PI + Math.PI * 0.4,
+          );
+          hudCtx.strokeStyle = `rgba(0,200,212,${opac * 0.5})`;
+          hudCtx.lineWidth = arcW * 0.5;
+          hudCtx.stroke();
+        });
+
+        // Center node
+        hudCtx.beginPath();
+        hudCtx.arc(cx, cy, 14, 0, Math.PI * 2);
+        hudCtx.fillStyle = "rgba(0,20,40,1)";
+        hudCtx.fill();
+        hudCtx.strokeStyle = "rgba(0,245,255,0.8)";
+        hudCtx.lineWidth = 1.5;
+        hudCtx.stroke();
+        hudCtx.beginPath();
+        hudCtx.arc(cx, cy, 5, 0, Math.PI * 2);
+        hudCtx.fillStyle = "rgba(0,245,255,0.9)";
+        hudCtx.fill();
+
+        // Text labels
+        hudCtx.fillStyle = "rgba(0,245,255,0.5)";
+        hudCtx.font = '9px "Share Tech Mono"';
+        hudCtx.textAlign = "center";
+        hudCtx.fillText("RADAR SCAN", cx, cy - r - 22);
+        hudCtx.fillStyle = "rgba(0,245,255,0.3)";
+        hudCtx.font = '8px "Share Tech Mono"';
+        hudCtx.fillText(
+          `RANGE: ${(r * 2).toFixed(0)}m — FREQ: 9.4GHz`,
+          cx,
+          cy + r + 24,
+        );
+        hudCtx.fillText(
+          `SWEEP: ${(((radarAngle % (Math.PI * 2)) / (Math.PI * 2)) * 360).toFixed(0)}°`,
+          cx,
+          cy + r + 36,
+        );
+
+        requestAnimationFrame(drawHud);
+      }
+
+      function startSystems() {
+        initHud();
+        initRadarDots();
+        drawHud();
+        updateMetrics();
+        setInterval(
+          () => addLog("SYSTEM MONITOR: ALL GREEN", "#3a7a94"),
+          15000,
+        );
+        addLog(
+          "JARVIS ONLINE — Voice keywords: QUANTUM, STEALTH, OVERDRIVE",
+          "#00f5ff",
+        );
+      }
+      window.addEventListener("resize", () => {
+        if (hud) initHud();
+      });
+
+      // ========== AUDIO INITIALIZATION WITH CONTINUOUS HUM ==========
+      document.addEventListener(
+        "click",
+        () => {
+          getAudioCtx();
+          if (!stopHum) {
+            stopHum = playHum();
+            console.log("🔊 Ambient hum activated - interface is alive");
+          }
+        },
+        { once: true },
+      );
+      document.addEventListener(
+        "keydown",
+        () => {
+          getAudioCtx();
+          if (!stopHum) {
+            stopHum = playHum();
+            console.log("🔊 Ambient hum activated - interface is alive");
+          }
+        },
+        { once: true },
+      );
+    </script>
+  </body>
+</html>
